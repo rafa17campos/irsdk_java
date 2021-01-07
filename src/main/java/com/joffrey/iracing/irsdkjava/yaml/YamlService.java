@@ -59,7 +59,7 @@ public class YamlService {
     }
 
     private YamlFile loadYamlObject() {
-        String yamlString = new String(sdkStarter.getHeader().getSessionInfoByteBuffer().array());
+        String yamlString = new String(sdkStarter.getLiveHeader().getSessionInfoByteBuffer().array());
         if (!yamlString.isEmpty()) {
             // Remove 'null' ascii char after '...' yaml ending
             yamlString = yamlString.substring(0, yamlString.indexOf("...") + 3);

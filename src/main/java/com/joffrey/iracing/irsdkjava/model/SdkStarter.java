@@ -35,6 +35,9 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Sinks;
+
+import javax.annotation.PostConstruct;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -42,15 +45,17 @@ import org.springframework.stereotype.Service;
 public class SdkStarter {
 
     private final WindowsService windowsService;
-    private final Map<String, VarHeader> vars = new HashMap<>();
+    private Map<String, VarHeader> vars = new HashMap<>();
     private WinNT.HANDLE memMapFile     = null;
     private WinNT.HANDLE dataValidEvent = null;
     @Getter
     private Pointer      sharedMemory   = null;
     @Getter
-    private Header       header         = null;
+    private LiveHeader liveHeader = null;
     private boolean isInitialized = false;
     private boolean wasConnected  = false;
+    private VarReader varReader = null;
+    private Sinks.Many<IRacingData> dataSink = null;
 
     private boolean isReady() {
         if (!isInitialized) {
@@ -62,9 +67,9 @@ public class SdkStarter {
             if (memMapFile != null) {
                 if (sharedMemory == null) {
                     sharedMemory = windowsService.mapViewOfFile(memMapFile);
-                    header = new Header(sharedMemory);
+                    liveHeader = new LiveHeader(sharedMemory);
 
-                    if (header.getByteBuffer() == null) {
+                    if (liveHeader.getByteBuffer() == null) {
                         return false;
                     }
 
@@ -93,35 +98,42 @@ public class SdkStarter {
         boolean isConnected;
 
         if (isReady()) {
-            isConnected = (header.getStatus() & StatusField.IRSDK_STCONNECTED.getValue()) > 0;
+            isConnected = (liveHeader.getStatus() & StatusField.IRSDK_STCONNECTED.getValue()) > 0;
         } else {
             isConnected = false;
         }
 
         // keep track of connection status
         if (wasConnected != isConnected) {
+            wasConnected = isConnected;
             if (isConnected) {
                 log.info("Connected to iRacing.");
                 fetchVars();
+                startPublishingThread();
             } else {
                 log.info("Lost connection to iRacing");
             }
             //****Note, put your connection handling here
-            wasConnected = isConnected;
         }
 
         return isConnected;
     }
 
+    private void startPublishingThread() {
+        new Thread(() -> {
+            while (isRunning()) {
+                dataSink.tryEmitNext(new IRacingData(liveHeader, liveHeader.getLatestVarByteBuffer()));
+                windowsService.waitForSingleObject(dataValidEvent, 1000);
+            }
+        }).start();
+    }
+
     public void fetchVars() {
-        for (int index = 0; index < header.getNumVars(); index++) {
-            VarHeader vh = getVarHeaderEntry(index);
-            vars.put(vh.getName(), vh);
-        }
+        vars = liveHeader.fetchVars();
     }
 
     private VarHeader getVarHeaderEntry(int index) {
-        return new VarHeader(ByteBuffer.wrap(sharedMemory.getByteArray(header.getVarHeaderOffset() + (VarHeader.VAR_HEADER_SIZE
+        return new VarHeader(ByteBuffer.wrap(sharedMemory.getByteArray(liveHeader.getVarHeaderOffset() + ((long) VarHeader.VAR_HEADER_SIZE
                                                                                                       * index),
                                                                        VarHeader.VAR_HEADER_SIZE)));
     }
@@ -134,7 +146,7 @@ public class SdkStarter {
         VarHeader varHeader = vars.get(varName);
         if (varHeader != null) {
             if (entry >= 0 && entry < varHeader.getCount()) {
-                return (header.getLatestVarByteBuffer()
+                return (liveHeader.getLatestVarByteBuffer()
                               .getChar(varHeader.getOffset() + (entry * VarTypeBytes.IRSDK_BOOL.getValue()))) != 0;
             }
         }
@@ -149,7 +161,7 @@ public class SdkStarter {
         VarHeader vh = vars.get(varName);
         if (vh != null) {
             if (entry >= 0 && entry < vh.getCount()) {
-                return header.getLatestVarByteBuffer().getInt(vh.getOffset() + (entry * VarTypeBytes.IRSDK_INT.getValue()));
+                return liveHeader.getLatestVarByteBuffer().getInt(vh.getOffset() + (entry * VarTypeBytes.IRSDK_INT.getValue()));
             }
         }
         return 0;
@@ -164,7 +176,7 @@ public class SdkStarter {
         VarHeader vh = vars.get(varName);
         if (vh != null) {
             if (entry >= 0 && entry < vh.getCount()) {
-                return header.getLatestVarByteBuffer().getFloat(vh.getOffset() + (entry * VarTypeBytes.IRSDK_FLOAT.getValue()));
+                return liveHeader.getLatestVarByteBuffer().getFloat(vh.getOffset() + (entry * VarTypeBytes.IRSDK_FLOAT.getValue()));
             }
         }
         return 0.0F;
@@ -178,13 +190,11 @@ public class SdkStarter {
         VarHeader vh = vars.get(varName);
         if (vh != null) {
             if (entry >= 0 && entry < vh.getCount()) {
-                return header.getLatestVarByteBuffer().getDouble(vh.getOffset() + (entry * VarTypeBytes.IRSDK_DOUBLE.getValue()));
+                return liveHeader.getLatestVarByteBuffer().getDouble(vh.getOffset() + (entry * VarTypeBytes.IRSDK_DOUBLE.getValue()));
 
             }
         }
         return 0.0;
-
     }
-
 
 }

@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doReturn;
 
 import com.joffrey.iracing.irsdkjava.config.FluxProperties;
-import com.joffrey.iracing.irsdkjava.model.Header;
+import com.joffrey.iracing.irsdkjava.model.LiveHeader;
 import com.joffrey.iracing.irsdkjava.model.SdkStarter;
 import com.joffrey.iracing.irsdkjava.raceinfo.RaceInfoService;
 import com.joffrey.iracing.irsdkjava.yaml.YamlService;
@@ -50,7 +50,7 @@ public class TestRaceInfoService {
     @MockBean
     private SdkStarter  sdkStarter;
     @MockBean
-    private Header      header;
+    private LiveHeader liveHeader;
     @MockBean
     private YamlService yamlService;
 
@@ -66,8 +66,8 @@ public class TestRaceInfoService {
         byteBufferYamlFile = createByteBufferYamlFile("raceinfo/raceinfo.yml");
         YamlFile yamlFile = loadYamlObject(byteBufferYamlFile);
 
-        Mockito.when(sdkStarter.getHeader()).thenReturn(header);
-        Mockito.when(sdkStarter.getHeader().getSessionInfoByteBuffer()).thenReturn(byteBufferYamlFile);
+        Mockito.when(sdkStarter.getLiveHeader()).thenReturn(liveHeader);
+        Mockito.when(sdkStarter.getLiveHeader().getSessionInfoByteBuffer()).thenReturn(byteBufferYamlFile);
         Mockito.when(sdkStarter.isRunning()).thenReturn(true);
         Mockito.when(yamlService.getYamlFile()).thenReturn(yamlFile);
 

@@ -1,100 +1,25 @@
-/*
- *
- *    Copyright (C) 2020 Joffrey Bonifay
- *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- */
+package com.joffrey.iracing.irsdkjava.model;
 
-package com.joffrey.iracing.irsdkjava.model;/*
- *    Copyright (C) 2020 Joffrey Bonifay
- *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
-
-import com.sun.jna.Pointer;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import lombok.Data;
+import java.util.HashMap;
+import java.util.Map;
 
-@Data
-public class Header {
+public abstract class Header {
+    protected static final int HEADER_SIZE = 112; // All fields are int (4 bytes), there are 28 fields (28 * 4) = 112
 
-    public static final int HEADER_SIZE = 112; // All fields are int (4 bytes), there are 28 fields (28 * 4) = 112
-    public final static int VARBUF_SIZE = 4 * 4;
+    protected static final int VARBUF_SIZE = 4 * 4;
 
-    private Pointer    sharedMemory;
-    private ByteBuffer byteBuffer;
+    private Map<String, VarHeader> vars;
 
-    public Header(Pointer sharedMemory) {
-        this.sharedMemory = sharedMemory;
-    }
+    public abstract ByteBuffer getHeaderByteBuffer();
 
-    public ByteBuffer getHeaderByteBuffer() {
-        ByteBuffer headerByteBuffer = ByteBuffer.allocateDirect(HEADER_SIZE);
-        headerByteBuffer.put(sharedMemory.getByteArray(0, Header.HEADER_SIZE));
-        headerByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-        return headerByteBuffer;
-    }
+    public abstract ByteBuffer getSessionInfoByteBuffer();
 
-    public ByteBuffer getSessionInfoByteBuffer() {
-        ByteBuffer sessionInfoByteBuffer =
-                ByteBuffer.wrap(sharedMemory.getByteArray(getSessionInfoOffset(), getSessionInfoLen()));
-        sessionInfoByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-        return sessionInfoByteBuffer;
-    }
+    public abstract ByteBuffer getVarHeaderByteBuffer(int index);
 
-    public ByteBuffer getVarHeaderByteBuffer() {
-        ByteBuffer varHeaderByteBuffer =
-                ByteBuffer.wrap(sharedMemory.getByteArray(getVarHeaderOffset(), getNumVars() * HEADER_SIZE));
-        varHeaderByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-        return varHeaderByteBuffer;
-    }
+    public abstract ByteBuffer getVarHeaderByteBuffer();
 
-    public ByteBuffer getVarByteBuffer(int idx) {
-        ByteBuffer varHeaderByteBuffer = ByteBuffer.wrap(sharedMemory.getByteArray(getVarBuf_BufOffset(idx), getBufLen()));
-        varHeaderByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-        return varHeaderByteBuffer;
-    }
-
-    public ByteBuffer getLatestVarByteBuffer() {
-        ByteBuffer varHeaderByteBuffer =
-                ByteBuffer.wrap(sharedMemory.getByteArray(getVarBuf_BufOffset(getLatestVarBuffIdx()), getBufLen()));
-        varHeaderByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-        return varHeaderByteBuffer;
-    }
-
+    public abstract ByteBuffer getVarByteBuffer(int idx);
 
     public int getVer() {
         return getHeaderByteBuffer().getInt(0);
@@ -136,22 +61,21 @@ public class Header {
         return getHeaderByteBuffer().getInt(36);
     }
 
-    public int getVarBuf_TickCount(int varBuf) {
-        return getSharedMemory().getInt((varBuf * VARBUF_SIZE) + 48);
-    }
-
-    public int getVarBuf_BufOffset(int varBuf) {
-        return getSharedMemory().getInt((varBuf * VARBUF_SIZE) + 52);
-    }
-
-    private int getLatestVarBuffIdx() {
-        int latest = 0;
-        for (int i = 1; i < getNumBuf(); i++) {
-            if (getVarBuf_TickCount(latest) < getVarBuf_TickCount(i)) {
-                latest = i;
-            }
+    public Map<String, VarHeader> fetchVars() {
+        if (vars != null) {
+            return vars;
         }
-        return latest;
+        vars = new HashMap<>();
+        for (int index = 0; index < getNumVars(); index++) {
+            VarHeader vh = getVarHeaderEntry(index);
+            vars.put(vh.getName(), vh);
+        }
+        return vars;
     }
+
+    private VarHeader getVarHeaderEntry(int index) {
+        return new VarHeader(getVarHeaderByteBuffer(index));
+    }
+
 
 }

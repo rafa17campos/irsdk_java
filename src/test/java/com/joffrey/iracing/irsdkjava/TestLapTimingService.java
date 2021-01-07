@@ -30,7 +30,7 @@ import static org.mockito.Mockito.doReturn;
 
 import com.joffrey.iracing.irsdkjava.config.FluxProperties;
 import com.joffrey.iracing.irsdkjava.laptiming.LapTimingService;
-import com.joffrey.iracing.irsdkjava.model.Header;
+import com.joffrey.iracing.irsdkjava.model.LiveHeader;
 import com.joffrey.iracing.irsdkjava.model.SdkStarter;
 import com.joffrey.iracing.irsdkjava.yaml.YamlService;
 import com.joffrey.iracing.irsdkjava.yaml.irsdkyaml.YamlFile;
@@ -52,7 +52,7 @@ class TestLapTimingService {
     @MockBean
     private SdkStarter  sdkStarter;
     @MockBean
-    private Header      header;
+    private LiveHeader liveHeader;
     @MockBean
     private YamlService yamlService;
 
@@ -66,8 +66,8 @@ class TestLapTimingService {
         lapTimingService = new LapTimingService(new FluxProperties(), sdkStarter, yamlService);
         YamlFile yamlFile = loadYamlObject(byteBufferYamlFile);
 
-        Mockito.when(sdkStarter.getHeader()).thenReturn(header);
-        Mockito.when(sdkStarter.getHeader().getSessionInfoByteBuffer()).thenReturn(byteBufferYamlFile);
+        Mockito.when(sdkStarter.getLiveHeader()).thenReturn(liveHeader);
+        Mockito.when(sdkStarter.getLiveHeader().getSessionInfoByteBuffer()).thenReturn(byteBufferYamlFile);
         Mockito.when(sdkStarter.isRunning()).thenReturn(true);
         Mockito.when(yamlService.getYamlFile()).thenReturn(yamlFile);
 

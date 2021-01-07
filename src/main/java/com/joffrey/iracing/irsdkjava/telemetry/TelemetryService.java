@@ -23,17 +23,16 @@
 
 package com.joffrey.iracing.irsdkjava.telemetry;
 
-import com.joffrey.iracing.irsdkjava.config.FluxProperties;
-import com.joffrey.iracing.irsdkjava.model.SdkStarter;
+import com.joffrey.iracing.irsdkjava.model.IRacingData;
+import com.joffrey.iracing.irsdkjava.model.VarReader;
 import com.joffrey.iracing.irsdkjava.telemetry.model.TelemetryData;
 import com.joffrey.iracing.irsdkjava.telemetry.model.TelemetryData.FuelAndAngles;
 import com.joffrey.iracing.irsdkjava.telemetry.model.TelemetryData.PedalsAndSpeed;
 import com.joffrey.iracing.irsdkjava.telemetry.model.TelemetryData.Session;
 import com.joffrey.iracing.irsdkjava.telemetry.model.TelemetryData.Weather;
-import java.time.Duration;
+
 import lombok.extern.java.Log;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.ConnectableFlux;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -41,83 +40,81 @@ import reactor.core.publisher.Mono;
 @Service
 public class TelemetryService {
 
-    private final FluxProperties                 fluxProperties;
-    private final SdkStarter                     sdkStarter;
-    private final ConnectableFlux<TelemetryData> telemetryDataFlux;
+    private final VarReader varReader;
 
-    public TelemetryService(FluxProperties fluxProperties, SdkStarter sdkStarter) {
-        this.fluxProperties = fluxProperties;
-        this.sdkStarter = sdkStarter;
-        this.telemetryDataFlux = Flux.interval(Duration.ofMillis(this.fluxProperties.getTelemetryIntervalInMs()))
-                                     .filter(aLong -> sdkStarter.isRunning()).flatMap(aLong -> loadTelemetryData()).publish();
+    private final Flux<TelemetryData> telemetryDataFlux;
 
+    public TelemetryService(Flux<IRacingData> dataFlux, VarReader varReader) {
+        this.varReader = varReader;
+        telemetryDataFlux = dataFlux.flatMap(this::loadTelemetryData);
+        telemetryDataFlux.subscribe();
     }
 
     public Flux<TelemetryData> getTelemetryDataFlux() {
-        return telemetryDataFlux.autoConnect();
+        return telemetryDataFlux;
     }
 
-    private Flux<TelemetryData> loadTelemetryData() {
+    private Flux<TelemetryData> loadTelemetryData(IRacingData iRacingData) {
 
-        Flux<TelemetryData.PedalsAndSpeed> firstGroup = Flux.zip(Mono.just(sdkStarter.getVarFloat("Throttle")),
-                                                                 Mono.just(sdkStarter.getVarFloat("Brake")),
-                                                                 Mono.just(sdkStarter.getVarFloat("Clutch")),
-                                                                 Mono.just(sdkStarter.getVarInt("Gear")),
-                                                                 Mono.just(sdkStarter.getVarFloat("ShiftGrindRPM")),
-                                                                 Mono.just(sdkStarter.getVarFloat("RPM")),
-                                                                 Mono.just(sdkStarter.getVarFloat("Speed")))
-                                                            .map(o -> new PedalsAndSpeed(o.getT1(),
-                                                                                         o.getT2(),
-                                                                                         o.getT3(),
-                                                                                         o.getT4(),
-                                                                                         o.getT5(),
-                                                                                         o.getT6(),
-                                                                                         o.getT7()));
+        Flux<TelemetryData.PedalsAndSpeed> firstGroup = Flux.zip(Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Throttle")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Brake")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Clutch")),
+                Mono.just(varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Gear")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "ShiftGrindRPM")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "RPM")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Speed")))
+                .map(o -> new PedalsAndSpeed(o.getT1(),
+                        o.getT2(),
+                        o.getT3(),
+                        o.getT4(),
+                        o.getT5(),
+                        o.getT6(),
+                        o.getT7()));
 
-        Flux<TelemetryData.FuelAndAngles> secondGroup = Flux.zip(Mono.just(sdkStarter.getVarFloat("FuelLevel")),
-                                                                 Mono.just(sdkStarter.getVarFloat("FuelLevelPct")),
-                                                                 Mono.just(sdkStarter.getVarFloat("FuelUsePerHour")),
-                                                                 Mono.just(sdkStarter.getVarFloat("LatAccel")),
-                                                                 Mono.just(sdkStarter.getVarFloat("LongAccel")),
-                                                                 Mono.just(sdkStarter.getVarFloat("SteeringWheelAngle")))
-                                                            .map(o -> new FuelAndAngles(o.getT1(),
-                                                                                        o.getT2(),
-                                                                                        o.getT3(),
-                                                                                        o.getT4(),
-                                                                                        o.getT5(),
-                                                                                        o.getT6()));
+        Flux<TelemetryData.FuelAndAngles> secondGroup = Flux.zip(Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "FuelLevel")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "FuelLevelPct")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "FuelUsePerHour")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LatAccel")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LongAccel")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "SteeringWheelAngle")))
+                .map(o -> new FuelAndAngles(o.getT1(),
+                        o.getT2(),
+                        o.getT3(),
+                        o.getT4(),
+                        o.getT5(),
+                        o.getT6()));
 
-        Flux<TelemetryData.Weather> thirdGroup = Flux.zip(Mono.just(sdkStarter.getVarFloat("AirPressure")),
-                                                          Mono.just(sdkStarter.getVarFloat("AirTemp")),
-                                                          Mono.just(sdkStarter.getVarFloat("RelativeHumidity")),
-                                                          Mono.just(sdkStarter.getVarInt("Skies")),
-                                                          Mono.just(sdkStarter.getVarFloat("TrackTemp")),
-                                                          Mono.just(sdkStarter.getVarFloat("WindDir")),
-                                                          Mono.just(sdkStarter.getVarFloat("WindVel")),
-                                                          Mono.just(sdkStarter.getVarInt("WeatherType")))
-                                                     .map(o -> new Weather(o.getT1(),
-                                                                           o.getT2(),
-                                                                           o.getT3(),
-                                                                           getSkies(o.getT4()),
-                                                                           o.getT5(),
-                                                                           o.getT6(),
-                                                                           o.getT7(),
-                                                                           getWeatherType(o.getT8())));
+        Flux<TelemetryData.Weather> thirdGroup = Flux.zip(Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "AirPressure")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "AirTemp")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "RelativeHumidity")),
+                Mono.just(varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Skies")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "TrackTemp")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "WindDir")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "WindVel")),
+                Mono.just(varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "WeatherType")))
+                .map(o -> new Weather(o.getT1(),
+                        o.getT2(),
+                        o.getT3(),
+                        getSkies(o.getT4()),
+                        o.getT5(),
+                        o.getT6(),
+                        o.getT7(),
+                        getWeatherType(o.getT8())));
 
-        Flux<TelemetryData.Session> fourthGroup = Flux.zip(Mono.just(sdkStarter.getVarDouble("SessionTime")),
-                                                           Mono.just(sdkStarter.getVarDouble("SessionTimeRemain")),
-                                                           Mono.just(sdkStarter.getVarFloat("LapBestLapTime")),
-                                                           Mono.just(sdkStarter.getVarInt("Lap")),
-                                                           Mono.just(sdkStarter.getVarFloat("LapCurrentLapTime")),
-                                                           Mono.just(sdkStarter.getVarInt("LapBestLap")),
-                                                           Mono.just(sdkStarter.getVarFloat("LapDistPct")))
-                                                      .map(o -> new Session(o.getT1(),
-                                                                            o.getT2(),
-                                                                            o.getT3(),
-                                                                            o.getT4(),
-                                                                            o.getT5(),
-                                                                            o.getT6(),
-                                                                            o.getT7()));
+        Flux<TelemetryData.Session> fourthGroup = Flux.zip(Mono.just(varReader.getVarDouble(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "SessionTime")),
+                Mono.just(varReader.getVarDouble(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "SessionTimeRemain")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LapBestLapTime")),
+                Mono.just(varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Lap")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LapCurrentLapTime")),
+                Mono.just(varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LapBestLap")),
+                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LapDistPct")))
+                .map(o -> new Session(o.getT1(),
+                        o.getT2(),
+                        o.getT3(),
+                        o.getT4(),
+                        o.getT5(),
+                        o.getT6(),
+                        o.getT7()));
 
         Flux<TelemetryData> firstZip = Flux.zip(firstGroup, secondGroup, (pedalsAndSpeed, fuelAndAngles) -> {
             TelemetryData telemetryData = new TelemetryData();

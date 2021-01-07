@@ -30,7 +30,7 @@
     <artifactId>spring-boot-starter-parent</artifactId>
     <groupId>org.springframework.boot</groupId>
     <relativePath/>
-    <version>2.3.1.RELEASE</version> <!-- lookup parent from repository -->
+    <version>2.4.1</version> <!-- lookup parent from repository -->
   </parent>
 
   <description>Unofficial Irsdk Java</description>
@@ -83,6 +83,7 @@
       <artifactId>lombok</artifactId>
       <groupId>org.projectlombok</groupId>
       <optional>true</optional>
+      <version>1.18.16</version>
     </dependency>
 
     <dependency>
@@ -114,7 +115,7 @@
       <artifactId>reactor-test</artifactId>
       <groupId>io.projectreactor</groupId>
       <scope>test</scope>
-      <version>3.3.8.RELEASE</version>
+      <version>3.4.1</version>
     </dependency>
 
     <dependency>
