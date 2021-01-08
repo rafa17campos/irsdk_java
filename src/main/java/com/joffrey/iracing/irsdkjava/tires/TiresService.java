@@ -21,10 +21,11 @@
  *
  */
 
-package com.joffrey.iracing.irsdkjava.tires.model;
+package com.joffrey.iracing.irsdkjava.tires;
 
 import com.joffrey.iracing.irsdkjava.model.IRacingData;
 import com.joffrey.iracing.irsdkjava.model.VarReader;
+import com.joffrey.iracing.irsdkjava.tires.model.Tires;
 import lombok.extern.java.Log;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;

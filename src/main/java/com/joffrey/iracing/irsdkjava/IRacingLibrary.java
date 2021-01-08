@@ -33,6 +33,8 @@ import com.joffrey.iracing.irsdkjava.raceinfo.RaceInfoService;
 import com.joffrey.iracing.irsdkjava.raceinfo.model.RaceInfo;
 import com.joffrey.iracing.irsdkjava.telemetry.TelemetryService;
 import com.joffrey.iracing.irsdkjava.telemetry.model.TelemetryData;
+import com.joffrey.iracing.irsdkjava.tires.TiresService;
+import com.joffrey.iracing.irsdkjava.tires.model.Tires;
 import com.joffrey.iracing.irsdkjava.trackmaptracker.TrackmapTrackerService;
 import com.joffrey.iracing.irsdkjava.trackmaptracker.model.TrackmapTrackerDriver;
 import com.joffrey.iracing.irsdkjava.windows.WindowsService;
@@ -48,6 +50,7 @@ public class IRacingLibrary {
     private final LapTimingService       lapTimingService;
     private final RaceInfoService        raceInfoService;
     private final TelemetryService       telemetryService;
+    private final TiresService tiresService;
     private final TrackmapTrackerService trackmapTrackerService;
     private final CameraService          cameraService;
     private final WindowsService         windowsService;
@@ -93,4 +96,7 @@ public class IRacingLibrary {
         }
     }
 
+    public Flux<Tires> getTires() {
+        return tiresService.getTiresFlux();
+    }
 }
