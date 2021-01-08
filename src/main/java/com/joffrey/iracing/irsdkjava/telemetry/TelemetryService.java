@@ -30,7 +30,6 @@ import com.joffrey.iracing.irsdkjava.telemetry.model.TelemetryData.FuelAndAngles
 import com.joffrey.iracing.irsdkjava.telemetry.model.TelemetryData.PedalsAndSpeed;
 import com.joffrey.iracing.irsdkjava.telemetry.model.TelemetryData.Session;
 import com.joffrey.iracing.irsdkjava.telemetry.model.TelemetryData.Weather;
-
 import lombok.extern.java.Log;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -54,146 +53,61 @@ public class TelemetryService {
         return telemetryDataFlux;
     }
 
-    private Flux<TelemetryData> loadTelemetryData(IRacingData iRacingData) {
-
-        Flux<TelemetryData.PedalsAndSpeed> firstGroup = Flux.zip(Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Throttle")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Brake")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Clutch")),
-                Mono.just(varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Gear")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "ShiftGrindRPM")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "RPM")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Speed")))
-                .map(o -> new PedalsAndSpeed(o.getT1(),
-                        o.getT2(),
-                        o.getT3(),
-                        o.getT4(),
-                        o.getT5(),
-                        o.getT6(),
-                        o.getT7()));
-
-        Flux<TelemetryData.FuelAndAngles> secondGroup = Flux.zip(Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "FuelLevel")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "FuelLevelPct")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "FuelUsePerHour")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LatAccel")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LongAccel")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "SteeringWheelAngle")))
-                .map(o -> new FuelAndAngles(o.getT1(),
-                        o.getT2(),
-                        o.getT3(),
-                        o.getT4(),
-                        o.getT5(),
-                        o.getT6()));
-
-        Flux<TelemetryData.Weather> thirdGroup = Flux.zip(Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "AirPressure")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "AirTemp")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "RelativeHumidity")),
-                Mono.just(varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Skies")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "TrackTemp")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "WindDir")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "WindVel")),
-                Mono.just(varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "WeatherType")))
-                .map(o -> new Weather(o.getT1(),
-                        o.getT2(),
-                        o.getT3(),
-                        getSkies(o.getT4()),
-                        o.getT5(),
-                        o.getT6(),
-                        o.getT7(),
-                        getWeatherType(o.getT8())));
-
-        Flux<TelemetryData.Session> fourthGroup = Flux.zip(Mono.just(varReader.getVarDouble(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "SessionTime")),
-                Mono.just(varReader.getVarDouble(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "SessionTimeRemain")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LapBestLapTime")),
-                Mono.just(varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Lap")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LapCurrentLapTime")),
-                Mono.just(varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LapBestLap")),
-                Mono.just(varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LapDistPct")))
-                .map(o -> new Session(o.getT1(),
-                        o.getT2(),
-                        o.getT3(),
-                        o.getT4(),
-                        o.getT5(),
-                        o.getT6(),
-                        o.getT7()));
-
-        Flux<TelemetryData> firstZip = Flux.zip(firstGroup, secondGroup, (pedalsAndSpeed, fuelAndAngles) -> {
-            TelemetryData telemetryData = new TelemetryData();
-            telemetryData.setThrottle(pedalsAndSpeed.getThrottle());
-            telemetryData.setBrake(pedalsAndSpeed.getBrake());
-            telemetryData.setClutch(pedalsAndSpeed.getClutch());
-            telemetryData.setGear(pedalsAndSpeed.getGear());
-            telemetryData.setShiftGrindRPM(pedalsAndSpeed.getShiftGrindRPM());
-            telemetryData.setRPM(pedalsAndSpeed.getRPM());
-            telemetryData.setSpeed(pedalsAndSpeed.getSpeed());
-
-            telemetryData.setFuelLevel(fuelAndAngles.getFuelLevel());
-            telemetryData.setFuelLevelPct(fuelAndAngles.getFuelLevelPct());
-            telemetryData.setFuelUsePerHour(fuelAndAngles.getFuelUsePerHour());
-            telemetryData.setLatAccel(fuelAndAngles.getLatAccel());
-            telemetryData.setLongAccel(fuelAndAngles.getLongAccel());
-            telemetryData.setSteeringWheelAngle(fuelAndAngles.getSteeringWheelAngle());
-            return telemetryData;
-        });
-        Flux<TelemetryData> secondZip = Flux.zip(thirdGroup, fourthGroup, (weather, session) -> {
-            TelemetryData telemetryData = new TelemetryData();
-            telemetryData.setAirPressure(weather.getAirPressure());
-            telemetryData.setAirTemp(weather.getAirTemp());
-            telemetryData.setRelativeHumidity(weather.getRelativeHumidity());
-            telemetryData.setSkies(weather.getSkies());
-            telemetryData.setTrackTemp(weather.getTrackTemp());
-            telemetryData.setWindDir(weather.getWindDir());
-            telemetryData.setWindVel(weather.getWindVel());
-            telemetryData.setWeatherType(weather.getWeatherType());
-
-            telemetryData.setSessionTime(session.getSessionTime());
-            telemetryData.setSessionTimeRemain(session.getSessionTimeRemain());
-            telemetryData.setLapBestLapTime(session.getLapBestLapTime());
-            telemetryData.setLap(session.getLap());
-            telemetryData.setLapCurrentLapTime(session.getLapCurrentLapTime());
-            telemetryData.setLapBestLap(session.getLapBestLap());
-            telemetryData.setLapDistPct(session.getLapDistPct());
-
-            return telemetryData;
-        });
-
-        return Flux.zip(firstZip, secondZip, (a, b) -> {
-            TelemetryData telemetryData = new TelemetryData();
-            telemetryData.setThrottle(a.getThrottle());
-            telemetryData.setBrake(a.getBrake());
-            telemetryData.setClutch(a.getClutch());
-            telemetryData.setGear(a.getGear());
-            telemetryData.setShiftGrindRPM(a.getShiftGrindRPM());
-            telemetryData.setRPM(a.getRPM());
-            telemetryData.setSpeed(a.getSpeed());
-
-            telemetryData.setFuelLevel(a.getFuelLevel());
-            telemetryData.setFuelLevelPct(a.getFuelLevelPct());
-            telemetryData.setFuelUsePerHour(a.getFuelUsePerHour());
-            telemetryData.setLatAccel(a.getLatAccel());
-            telemetryData.setLongAccel(a.getLongAccel());
-            telemetryData.setSteeringWheelAngle(a.getSteeringWheelAngle());
-
-            telemetryData.setAirPressure(b.getAirPressure());
-            telemetryData.setAirTemp(b.getAirTemp());
-            telemetryData.setRelativeHumidity(b.getRelativeHumidity());
-            telemetryData.setSkies(b.getSkies());
-            telemetryData.setTrackTemp(b.getTrackTemp());
-            telemetryData.setWindDir(b.getWindDir());
-            telemetryData.setWindVel(b.getWindVel());
-            telemetryData.setWeatherType(b.getWeatherType());
-
-            telemetryData.setSessionTime(b.getSessionTime());
-            telemetryData.setSessionTimeRemain(b.getSessionTimeRemain());
-            telemetryData.setLapBestLapTime(b.getLapBestLapTime());
-            telemetryData.setLap(b.getLap());
-            telemetryData.setLapCurrentLapTime(b.getLapCurrentLapTime());
-            telemetryData.setLapBestLap(b.getLapBestLap());
-            telemetryData.setLapDistPct(b.getLapDistPct());
-
-            return telemetryData;
-        });
-
+    private Mono<TelemetryData> loadTelemetryData(IRacingData iRacingData) {
+        return Mono.just(TelemetryData.builder())
+                .map(builder -> builder.pedalsAndSpeed(buildPedalsAndSpeed(iRacingData)))
+                .map(builder -> builder.fuelAndAngles(buildFuelAndAngles(iRacingData)))
+                .map(builder -> builder.weather(buildWeather(iRacingData)))
+                .map(builder -> builder.session(buildSession(iRacingData)))
+                .map(TelemetryData.TelemetryDataBuilder::build);
     }
+
+    private Session buildSession(IRacingData iRacingData) {
+        return new Session(
+                varReader.getVarDouble(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "SessionTime"),
+                varReader.getVarDouble(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "SessionTimeRemain"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LapBestLapTime"),
+                varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Lap"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LapCurrentLapTime"),
+                varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LapBestLap"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LapDistPct"));
+    }
+
+    private Weather buildWeather(IRacingData iRacingData) {
+        return new Weather(
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "AirPressure"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "AirTemp"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "RelativeHumidity"),
+                getSkies(varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Skies")),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "TrackTemp"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "WindDir"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "WindVel"),
+                getWeatherType(varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "WeatherType")));
+    }
+
+    private FuelAndAngles buildFuelAndAngles(IRacingData iRacingData) {
+        return new FuelAndAngles(
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "FuelLevel"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "FuelLevelPct"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "FuelUsePerHour"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LatAccel"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "LongAccel"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "SteeringWheelAngle")
+        );
+    }
+
+    private PedalsAndSpeed buildPedalsAndSpeed(IRacingData iRacingData) {
+        return new PedalsAndSpeed(
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Throttle"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Brake"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Clutch"),
+                varReader.getVarInt(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Gear"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "ShiftGrindRPM"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "RPM"),
+                varReader.getVarFloat(iRacingData.getData(), iRacingData.getHeader().fetchVars(), "Speed")
+        );
+    }
+
 
     private String getWeatherType(Integer weatherIntVal) {
         if (weatherIntVal == 0) {
