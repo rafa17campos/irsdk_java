@@ -23,26 +23,25 @@
 
 package com.joffrey.iracing.irsdkjava.config;
 
-import com.joffrey.iracing.irsdkjava.model.Header;
 import com.joffrey.iracing.irsdkjava.model.IRacingData;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
-
-import java.nio.ByteBuffer;
-import java.util.Map;
 
 @ComponentScan(basePackages = "com.joffrey.iracing.irsdkjava")
 @Configuration
 @EnableConfigurationProperties({FluxProperties.class})
 public class IRacingLibraryConfiguration {
 
+    @Bean
     public Sinks.Many<IRacingData> dataSink() {
         return Sinks.many().multicast().directBestEffort();
     }
 
+    @Bean
     public Flux<IRacingData> dataFlux() {
         return dataSink().asFlux();
     }

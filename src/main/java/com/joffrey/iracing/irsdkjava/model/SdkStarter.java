@@ -28,16 +28,15 @@ import com.joffrey.iracing.irsdkjava.model.defines.VarTypeBytes;
 import com.joffrey.iracing.irsdkjava.windows.WindowsService;
 import com.sun.jna.Pointer;
 import com.sun.jna.platform.win32.WinNT;
-import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Sinks;
 
-import javax.annotation.PostConstruct;
+import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -45,17 +44,16 @@ import javax.annotation.PostConstruct;
 public class SdkStarter {
 
     private final WindowsService windowsService;
+    private final Sinks.Many<IRacingData> dataSink;
     private Map<String, VarHeader> vars = new HashMap<>();
-    private WinNT.HANDLE memMapFile     = null;
+    private WinNT.HANDLE memMapFile = null;
     private WinNT.HANDLE dataValidEvent = null;
     @Getter
-    private Pointer      sharedMemory   = null;
+    private Pointer sharedMemory = null;
     @Getter
     private LiveHeader liveHeader = null;
     private boolean isInitialized = false;
-    private boolean wasConnected  = false;
-    private VarReader varReader = null;
-    private Sinks.Many<IRacingData> dataSink = null;
+    private boolean wasConnected = false;
 
     private boolean isReady() {
         if (!isInitialized) {
@@ -68,11 +66,6 @@ public class SdkStarter {
                 if (sharedMemory == null) {
                     sharedMemory = windowsService.mapViewOfFile(memMapFile);
                     liveHeader = new LiveHeader(sharedMemory);
-
-                    if (liveHeader.getByteBuffer() == null) {
-                        return false;
-                    }
-
                 }
 
                 if (sharedMemory != null) {
@@ -108,7 +101,6 @@ public class SdkStarter {
             wasConnected = isConnected;
             if (isConnected) {
                 log.info("Connected to iRacing.");
-                fetchVars();
                 startPublishingThread();
             } else {
                 log.info("Lost connection to iRacing");
@@ -122,20 +114,19 @@ public class SdkStarter {
     private void startPublishingThread() {
         new Thread(() -> {
             while (isRunning()) {
-                dataSink.tryEmitNext(new IRacingData(liveHeader, liveHeader.getLatestVarByteBuffer()));
-                windowsService.waitForSingleObject(dataValidEvent, 1000);
+                ByteBuffer bb = liveHeader.getLatestVarByteBuffer();
+                if (bb != null) {
+                    dataSink.tryEmitNext(new IRacingData(liveHeader, bb));
+                    windowsService.waitForSingleObject(dataValidEvent, 1000);
+                }
             }
-        }).start();
-    }
-
-    public void fetchVars() {
-        vars = liveHeader.fetchVars();
+        }, "publishing").start();
     }
 
     private VarHeader getVarHeaderEntry(int index) {
         return new VarHeader(ByteBuffer.wrap(sharedMemory.getByteArray(liveHeader.getVarHeaderOffset() + ((long) VarHeader.VAR_HEADER_SIZE
-                                                                                                      * index),
-                                                                       VarHeader.VAR_HEADER_SIZE)));
+                        * index),
+                VarHeader.VAR_HEADER_SIZE)));
     }
 
     public boolean getVarBoolean(String varName) {
@@ -147,7 +138,7 @@ public class SdkStarter {
         if (varHeader != null) {
             if (entry >= 0 && entry < varHeader.getCount()) {
                 return (liveHeader.getLatestVarByteBuffer()
-                              .getChar(varHeader.getOffset() + (entry * VarTypeBytes.IRSDK_BOOL.getValue()))) != 0;
+                        .getChar(varHeader.getOffset() + (entry * VarTypeBytes.IRSDK_BOOL.getValue()))) != 0;
             }
         }
         return false;
